@@ -1,69 +1,33 @@
 pipeline {
-    agent any
-
-    environment {
-        DOCKER_IMAGE = "aisalkyn85/manual-app"
-        IMAGE_TAG = "${BUILD_NUMBER}"
-    }
+    agent { label 'mac' }
 
     stages {
 
         stage('Checkout') {
             steps {
-                echo "Cloning repository..."
                 checkout scm
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Env Check') {
             steps {
-                echo "Installing npm dependencies..."
+                sh 'echo USER: $(whoami)'
+                sh 'echo HOST: $(hostname)'
+                sh 'node -v'
+                sh 'npm -v'
+            }
+        }
+
+        stage('Install') {
+            steps {
                 sh 'npm install'
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Test') {
             steps {
-                echo "Building Docker image..."
-                sh """
-                docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} .
-                """
+                sh 'npm test || true'
             }
-        }
-
-        stage('Login to DockerHub') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-creds',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
-                    sh """
-                    echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
-                    """
-                }
-            }
-        }
-
-        stage('Push Image') {
-            steps {
-                echo "Pushing image to DockerHub..."
-                sh """
-                docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
-                """
-            }
-        }
-    }
-
-    post {
-        success {
-            echo "CI Pipeline completed successfully!"
-        }
-        failure {
-            echo "CI Pipeline failed!"
-        }
-        always {
-            echo "Pipeline finished."
         }
     }
 }
